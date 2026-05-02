@@ -208,7 +208,7 @@ class _ActionFab extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ListenableBuilder(
-      listenable: Listenable.merge([isLoading, isReady]),
+      listenable: Listenable.merge([isLoading, isReady, isGenerating]),
       builder: (context, _) {
         Widget icon;
         VoidCallback? action;
@@ -223,6 +223,9 @@ class _ActionFab extends StatelessWidget {
         } else if (!isReady.value) {
           icon = const Icon(Icons.download);
           action = pickAndInstallModel;
+        } else if (isGenerating.value) {
+          icon = const Icon(Icons.stop);
+          action = stopInference;
         } else if (!enabled) {
           icon = const Icon(Icons.hourglass_empty);
           action = null;

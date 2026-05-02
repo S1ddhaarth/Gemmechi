@@ -7,6 +7,12 @@ import 'package:path_provider/path_provider.dart';
 final ValueNotifier<bool> isLoading = ValueNotifier<bool>(false);
 final ValueNotifier<bool> isReady = ValueNotifier<bool>(false);
 final ValueNotifier<double> copyProgress = ValueNotifier<double>(0.0);
+final ValueNotifier<bool> isGenerating = ValueNotifier<bool>(false);
+InferenceChat? _activeChat;
+
+Future<void> stopInference() async {
+  await _activeChat?.stopGeneration();
+}
 
 Future<String?> copyModel() async {
   try {
@@ -35,7 +41,11 @@ Future<String?> copyModel() async {
         bytesReceived += chunk.length;
         if (totalBytes > 0) {
           copyProgress.value = bytesReceived / totalBytes;
-          debugPrint(copyProgress.value.toString());
+          debugPrint(
+            'Copying: ${(copyProgress.value * 100).toStringAsFixed(2)}% '
+            '(${(bytesReceived / (1024 * 1024)).toStringAsFixed(2)} MB / '
+            '${(totalBytes / (1024 * 1024)).toStringAsFixed(2)} MB)',
+          );
         }
       }
       await sink.flush();
@@ -76,7 +86,9 @@ Future<String> startChat(String text) async {
   );
   try {
     final chat = await model.createChat();
+    _activeChat = chat;
     await chat.addQueryChunk(Message(text: text, isUser: true));
+    isGenerating.value = true;
     final chunks = <String>[];
     await for (final response in chat.generateChatResponseAsync()) {
       if (response is TextResponse) {
@@ -89,6 +101,8 @@ Future<String> startChat(String text) async {
     );
     return responseText;
   } finally {
+    isGenerating.value = false;
+    _activeChat = null;
     await model.close();
   }
 }
