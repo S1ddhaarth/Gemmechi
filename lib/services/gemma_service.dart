@@ -79,9 +79,9 @@ Future<String?> pickAndInstallModel() async {
   return null;
 }
 
-Future<String> startChat(String text) async {
+Stream<String> startChat(String text) async* {
   final model = await FlutterGemma.getActiveModel(
-    maxTokens: 1024,
+    maxTokens: 2048,
     preferredBackend: PreferredBackend.gpu,
   );
   try {
@@ -90,16 +90,19 @@ Future<String> startChat(String text) async {
     await chat.addQueryChunk(Message(text: text, isUser: true));
     isGenerating.value = true;
     final chunks = <String>[];
+    int sinceLastYield = 0;
     await for (final response in chat.generateChatResponseAsync()) {
       if (response is TextResponse) {
         chunks.add(response.token);
+        sinceLastYield++;
+        if (sinceLastYield >= 2) {
+          sinceLastYield = 0;
+          yield chunks.join();
+        }
       }
     }
-    final responseText = chunks.join();
-    debugPrint(
-      'Response: "${responseText.length > 100 ? responseText.substring(0, 100) : responseText}"',
-    );
-    return responseText;
+    // Yield final accumulated text
+    yield chunks.join();
   } finally {
     isGenerating.value = false;
     _activeChat = null;

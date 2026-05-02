@@ -39,19 +39,24 @@ class _ChatScreenState extends State<ChatScreen> {
 
     setState(() {
       _messages.add(Message(text: text, isUser: true));
+      _messages.add(Message(text: '', isUser: false));
       _controller.clear();
       _isThinking = true;
     });
     _scrollToBottom();
 
-    final response = await startChat(text);
+    await for (final partial in startChat(text)) {
+      if (!mounted) break;
+      setState(() {
+        _messages.last = Message(text: partial, isUser: false);
+      });
+      _scrollToBottom();
+    }
 
     if (mounted) {
       setState(() {
         _isThinking = false;
-        _messages.add(Message(text: response, isUser: false));
       });
-      _scrollToBottom();
     }
   }
 
@@ -221,7 +226,7 @@ class _ActionFab extends StatelessWidget {
           );
           action = null;
         } else if (!isReady.value) {
-          icon = const Icon(Icons.download);
+          icon = const Icon(Icons.file_download);
           action = pickAndInstallModel;
         } else if (isGenerating.value) {
           icon = const Icon(Icons.stop);
