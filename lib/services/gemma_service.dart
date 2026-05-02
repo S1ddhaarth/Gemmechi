@@ -8,6 +8,7 @@ final ValueNotifier<bool> isLoading = ValueNotifier<bool>(false);
 final ValueNotifier<bool> isReady = ValueNotifier<bool>(false);
 final ValueNotifier<double> copyProgress = ValueNotifier<double>(0.0);
 final ValueNotifier<bool> isGenerating = ValueNotifier<bool>(false);
+InferenceModel? _activeModel;
 InferenceChat? _activeChat;
 
 Future<void> stopInference() async {
@@ -80,18 +81,21 @@ Future<String?> pickAndInstallModel() async {
 }
 
 Stream<String> startChat(String text) async* {
-  final model = await FlutterGemma.getActiveModel(
+  _activeModel ??= await FlutterGemma.getActiveModel(
     maxTokens: 2048,
     preferredBackend: PreferredBackend.gpu,
   );
+  
+  if (_activeChat == null) {
+    _activeChat = await _activeModel!.createChat();
+  }
+
   try {
-    final chat = await model.createChat();
-    _activeChat = chat;
-    await chat.addQueryChunk(Message(text: text, isUser: true));
+    await _activeChat!.addQueryChunk(Message(text: text, isUser: true));
     isGenerating.value = true;
     final chunks = <String>[];
     int sinceLastYield = 0;
-    await for (final response in chat.generateChatResponseAsync()) {
+    await for (final response in _activeChat!.generateChatResponseAsync()) {
       if (response is TextResponse) {
         chunks.add(response.token);
         sinceLastYield++;
@@ -105,7 +109,11 @@ Stream<String> startChat(String text) async* {
     yield chunks.join();
   } finally {
     isGenerating.value = false;
-    _activeChat = null;
-    await model.close();
   }
+}
+
+Future<void> closeChat() async {
+  await _activeModel?.close();
+  _activeModel = null;
+  _activeChat = null;
 }

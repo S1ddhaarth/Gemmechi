@@ -21,6 +21,14 @@ class _ChatScreenState extends State<ChatScreen> {
   bool _isThinking = false;
   final ScrollController _scrollController = ScrollController();
 
+  @override
+  void dispose() {
+    _controller.dispose();
+    _scrollController.dispose();
+    closeChat();
+    super.dispose();
+  }
+
   void _scrollToBottom() {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (_scrollController.hasClients) {
