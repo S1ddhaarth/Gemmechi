@@ -85,12 +85,13 @@ Stream<String> startChat(String text) async* {
     maxTokens: 2048,
     preferredBackend: PreferredBackend.gpu,
   );
-  
-  if (_activeChat == null) {
-    _activeChat = await _activeModel!.createChat();
-  }
+
+  _activeChat ??= await _activeModel!.createChat();
 
   try {
+    final promptTokens = await _activeChat!.session.sizeInTokens(text);
+    debugPrint('Token Tracker [Prompt]: $promptTokens tokens');
+
     await _activeChat!.addQueryChunk(Message(text: text, isUser: true));
     isGenerating.value = true;
     final chunks = <String>[];
@@ -106,7 +107,10 @@ Stream<String> startChat(String text) async* {
       }
     }
     // Yield final accumulated text
-    yield chunks.join();
+    final fullReply = chunks.join();
+    final replyTokens = await _activeChat!.session.sizeInTokens(fullReply);
+    debugPrint('Token Tracker [Reply]: $replyTokens tokens');
+    yield fullReply;
   } finally {
     isGenerating.value = false;
   }
